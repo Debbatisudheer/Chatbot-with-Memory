@@ -1,0 +1,50 @@
+# ==========================================================
+# 🔒 SAFE .gitignore for Memory Chatbot (Node + Python)
+# ==========================================================
+
+# -------------------------
+# ENV / Secrets
+# -------------------------
+
+# -------------------------
+# Node (backend + frontend)
+# -------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite output (frontend build files)
+/chatbot-ui/dist/
+dist/
+
+# -------------------------
+# Python related ignores
+# -------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+
+# -------------------------
+# Database (SQLite)
+# -------------------------
+
+
+# -------------------------
+# IDE / Editor junk
+# -------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# OS specific files
+*.swp
+*.swo
