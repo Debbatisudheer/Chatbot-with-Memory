@@ -1,33 +1,26 @@
 from memory import extract_memory, recall_memory
+from semantic_memory import add_semantic_memory, search_semantic_memory
 
 def chatbot_reply(user_input):
-    # 1️⃣ Try to recall memory
-    remembered = recall_memory(user_input)
-    if remembered:
-        return remembered
 
-    # 2️⃣ Try to extract/store memory
-    learned = extract_memory(user_input)
+    text = user_input.lower()
+
+    # ✅ First check structured memory
+    structured = recall_memory(text)
+    if structured:
+        return structured
+
+    # ✅ If user is giving memory → store it
+    learned = extract_memory(text)
     if learned:
+        add_semantic_memory(text)  # Store also in vector DB
         return learned
 
-    # 3️⃣ Otherwise general response
-    return "Interesting... tell me more."
+    # ✅ Then semantic memory
+    semantic = search_semantic_memory(text)
+    if semantic:
+        return semantic
 
-
-# ---------------------------------------------------------
-# ✅ CLI MODE (ONLY when running manually)
-# ---------------------------------------------------------
-if __name__ == "__main__":
-    print("\nChatbot 🤖: Hello! I remember what you tell me.")
-    print("Type 'exit' to quit.\n")
-
-    while True:
-        user_input = input("You: ")
-
-        if user_input.lower() == "exit":
-            print("Chatbot 🤖: Bye!")
-            break
-
-        reply = chatbot_reply(user_input)
-        print("Chatbot 🤖:", reply)
+    # ✅ Default
+    add_semantic_memory(text)
+    return "interesting... tell me more."

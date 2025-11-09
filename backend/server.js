@@ -1,3 +1,4 @@
+// server.js
 import express from "express";
 import cors from "cors";
 import { PythonShell } from "python-shell";
@@ -15,81 +16,96 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✅ Proper Python path
+// ✅ Path setup
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 const PYTHON_PATH =
   "C:\\Users\\sudheer\\AppData\\Local\\Programs\\Python\\Python310\\python.exe";
 
-// ✅ Home test route
-app.get("/", (req, res) => {
-  res.send("✅ Backend working! POST /chat to talk to chatbot.");
-});
-
-// ✅ CHAT API
+// ✅ CHAT ROUTE
 app.post("/chat", async (req, res) => {
   const userMessage = req.body.message;
-  console.log("📩 UI Sent:", userMessage);
+  console.log("\n📩 User Sent:", userMessage);
 
   let memoryReply = null;
 
   try {
     const output = await PythonShell.run("chat_api.py", {
       pythonPath: PYTHON_PATH,
-      mode: "text",
       scriptPath: path.join(__dirname, "../src"),
       args: [userMessage],
     });
 
-    memoryReply = output[0]?.trim();     // ✅ always string
-    console.log("🧠 Memory Reply (Python):", memoryReply);
-
+    try {
+      memoryReply = JSON.parse(output?.[0]).reply;
+    } catch {
+      memoryReply = output?.[0];
+    }
   } catch (err) {
     console.error("❌ Python Error:", err);
   }
 
-  // ✅ Build memory context to supply to GPT
-  const memoryContext =
-    memoryReply && memoryReply !== "Interesting... tell me more."
-      ? `User memory: ${memoryReply}`
-      : "No memory available.";
+  const context = memoryReply ? `User memory: ${memoryReply}` : "";
 
-  // ✅ Send request to GPT with memory context
+  const gptResponse = await client.chat.completions.create({
+    model: "gpt-4.1-mini",
+    messages: [
+      {
+        role: "system",
+        content: `
+You reply in **maximum 6 words**.
+Use memory if it's relevant.`,
+      },
+      { role: "user", content: `${context}\nUser: ${userMessage}` },
+    ],
+  });
+
+  const finalReply = gptResponse.choices[0].message.content
+    .split(" ")
+    .slice(0, 6)
+    .join(" ");
+
+  return res.json({
+    reply: finalReply,
+    memory: memoryReply,
+  });
+});
+
+// ✅ LIST MEMORIES
+app.get("/memory/list", async (req, res) => {
   try {
-    const gptResponse = await client.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        {
-          role: "system",
-          content: `
-You are a memory-enhanced chatbot.
-Use the stored memory when the user asks related questions.
-
-Memory:
-${memoryContext}
-
-Rules:
-- If memory is relevant, answer from memory.
-- If user asks "who is my favorite god" and memory includes "love Shiva", infer the answer.
-- Never say "I don't know" if memory exists.
-          `,
-        },
-        { role: "user", content: userMessage },
-      ],
+    const output = await PythonShell.run("memory_api.py", {
+      pythonPath: PYTHON_PATH,
+      scriptPath: path.join(__dirname, "../src"),
     });
 
-    const reply = gptResponse.choices[0].message.content;
-    console.log("🤖 GPT Reply:", reply);
-
-    return res.json({ reply });
-
-  } catch (err) {
-    console.error("❌ GPT Error:", err);
-    return res.json({ reply: "⚠️ GPT Error" });
+    return res.json({ memories: JSON.parse(output[0]) });
+  } catch (error) {
+    console.error("❌ Error listing memories:", error);
+    return res.json({ memories: [] });
   }
 });
 
-// ✅ Start server
+// ✅ DELETE MEMORY
+app.post("/memory/delete", async (req, res) => {
+  const { id } = req.body;
+
+  try {
+    await PythonShell.run("delete_api.py", {
+      pythonPath: PYTHON_PATH,
+      scriptPath: path.join(__dirname, "../src"),
+      args: [id],
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("❌ Delete error:", error);
+    return res.json({ success: false });
+  }
+});
+
+// ✅ START SERVER
 app.listen(5000, () =>
-  console.log("✅ Backend running on http://localhost:5000")
+  console.log("✅ Backend running → http://localhost:5000")
 );
